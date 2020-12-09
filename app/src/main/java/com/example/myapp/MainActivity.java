@@ -6,14 +6,18 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import android.app.ProgressDialog;
 import android.os.Bundle;
+import android.view.View;
 import android.widget.Adapter;
 import android.widget.AdapterView;
+import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
+import com.android.volley.toolbox.JsonObjectRequest;
 import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
 
@@ -21,87 +25,72 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.util.ArrayList;
 
-import static com.example.myapp.R.id.recyclerview;
 
 public class MainActivity extends AppCompatActivity {
-
-    RecyclerView recyclerView;
-    RecyclerView.Adapter adapter;
-    AdapterView.OnItemClickListener itemClickListener;
-
-    ArrayList <Posts> posts;
+    private TextView mTextViewResult;
+    private RequestQueue mQueue;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        posts = new ArrayList<>();
+        mTextViewResult = findViewById(R.id.text_view_result);
+        Button buttonParse = findViewById(R.id.button_parse);
 
-        recyclerView = findViewById(recyclerview);
-        recyclerView.setHasFixedSize(true);
-        recyclerView.setLayoutManager(new LinearLayoutManager(this));
-        adapter = new MainAdapter(MainActivity.this, posts);
-        recyclerView.setAdapter(adapter);
+        mQueue = Volley.newRequestQueue(this);
 
-        retrievePosts();
+        buttonParse.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                jsonParse();
+            }
+        });
     }
-    private void retrievePosts(){
+
+    private void jsonParse() {
 
         final ProgressDialog progressDialog = new ProgressDialog(this);
         progressDialog.setMessage("Retrieving posts");
         progressDialog.show();
 
-        System.out.println("!!!posts!!!");
-        StringRequest stringRequest = new StringRequest(Request.Method.GET,
-                "https://jsonplaceholder.typicode.com/posts",
-                new Response.Listener <String>() {
+            System.out.println("!!!posts!!!");
+            JsonObjectRequest request = new JsonObjectRequest(Request.Method.GET,
+                    "https://jsonplaceholder.typicode.com/posts", null,
+                    new Response.Listener<JSONObject>() {
+                        @Override
+                        public void onResponse(JSONObject response) {
+                            progressDialog.dismiss();
 
-                    @Override
-                    public void onResponse(String s) {
-                        progressDialog.dismiss();
+                            try {
+                                JSONArray jsonArray = response.getJSONArray("posts");
 
-                        try {
-                            JSONObject jsonObject = new JSONObject(s);
-                            JSONArray array = jsonObject.getJSONArray("posts");
+                                for (int i = 0; i < jsonArray.length(); i++) {
+                                    JSONObject posts = jsonArray.getJSONObject(i);
 
-                            for (int i = 0; i < array.length(); i++) {
-                                JSONObject row = array.getJSONObject(i);
-                                Posts post = new Posts(
-                                        row.getInt("user_id"),
-                                        row.getInt("id"),
-                                        row.getString("title"),
-                                        row.getString("body")
-                                );
-                                posts.add(post);
+                                    int User_id = posts.getInt("userId");
+                                    int id = posts.getInt("id");
+                                    String title = posts.getString("title");
+                                    String body = posts.getString("body");
 
+                                    mTextViewResult.append(String.valueOf(User_id) + ", " + String.valueOf(id) + ", " + title + ", " + body + "\n\n");
+                                }
+
+                            } catch (JSONException e) {
+                                e.printStackTrace();
                             }
-
-                            adapter.notifyDataSetChanged();
-
-                        } catch (JSONException e) {
-                            e.printStackTrace();
                         }
-                    }
-                },
-                new Response.ErrorListener() {
-                    @Override
-                    public void onErrorResponse(VolleyError error) {
-                        System.out.println("volleyError error" + error.getMessage());
-                        Toast.makeText(getApplicationContext(), "Poor network connection.", Toast.LENGTH_LONG).show();
-                    }
-                }) {
-        };
+                    },
+                    new Response.ErrorListener() {
+                        @Override
+                        public void onErrorResponse(VolleyError error) {
+                            System.out.println("volleyError error" + error.getMessage());
+                            Toast.makeText(getApplicationContext(), "Poor network connection.", Toast.LENGTH_LONG).show();
+                        }
+                    });
 
-        RequestQueue requestQueue = Volley.newRequestQueue(MainActivity.this);
-        requestQueue.add(stringRequest);
+            mQueue.add(request);
+        }
     }
 
-    @Override
-    public void onResume() {
-        super.onResume();
-        adapter.notifyItemRangeChanged(0, adapter.getItemCount());
-    }
-}
